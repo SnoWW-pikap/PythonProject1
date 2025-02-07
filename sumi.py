@@ -337,7 +337,6 @@ def main():
 
         keys = pygame.key.get_pressed()
 
-        # Player controls
         if keys[pygame.K_a]:
             player1.move(-5)
         if keys[pygame.K_d]:
