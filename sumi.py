@@ -16,6 +16,7 @@ def log_action(action):
     c.execute("INSERT INTO actions (action, timestamp) VALUES (?, ?)",
               (action, datetime.datetime.now()))
     conn.commit()
+
 pygame.init()
 WIDTH, HEIGHT = 800, 600
 FPS = 60
@@ -31,7 +32,6 @@ clock = pygame.time.Clock()
 backgrounds = [pygame.image.load(f"background{i}.png") for i in range(1, 8)]
 for i in range(len(backgrounds)):
     backgrounds[i] = pygame.transform.scale(backgrounds[i], (WIDTH, HEIGHT))
-
 
 class Player:
     def __init__(self, x, y, color):
@@ -154,9 +154,9 @@ class Player:
 
     def attack(self, opponent):
         if self.collide_with(opponent):
-            opponent.health -= 10 * self.level
+            opponent.health -= 20 * self.level
             if opponent.health <= 0:
-                self.points += 20 + (self.level - 1) * 30
+                self.points += 400 * (2 ** (self.level - 1))
                 self.level_up()
         self.is_attacking = True
         self.attack_timer = 10
@@ -191,6 +191,8 @@ class Bot(Player):
         super().__init__(x, y, color)
         self.move_direction = -1
         self.attack_cooldown = 0
+        self.health = 200
+        self.level = 5
 
     def update(self, player):
         if random.random() < 0.02:
@@ -210,11 +212,11 @@ class Bot(Player):
         self.move(self.move_direction * (3 + self.level // 2))
 
     def attack(self, opponent):
-        damage = 10 + self.level * 2
+        damage = 20 + self.level * 2
         if self.collide_with(opponent):
             opponent.health -= damage
             if opponent.health <= 0:
-                self.points += 20 + (self.level - 1) * 30
+                self.points += 400 * (2 ** (self.level - 1))
                 self.level_up()
         self.is_attacking = True
         self.attack_timer = 10
@@ -258,7 +260,7 @@ def shop(player):
         text = font.render("Shop", True, BLACK)
         screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 4))
         option1_text = font.render("1. Flying Mode (2000 points)", True, BLACK)
-        option2_text = font.render("2. Sumo Mode (5000 points)", True, BLACK)
+        option2_text = font.render("2. Knight Mode (5000 points)", True, BLACK)
         option3_text = font.render("3. Exit Shop", True, BLACK)
         screen.blit(option1_text, (WIDTH // 2 - option1_text.get_width() // 2, HEIGHT // 2))
         screen.blit(option2_text, (WIDTH // 2 - option2_text.get_width() // 2, HEIGHT // 2 + 50))
@@ -274,7 +276,7 @@ def shop(player):
                 elif event.key == pygame.K_2:
                     if player.points >= 5000:
                         player.points -= 5000
-                        return "sumo"
+                        return "knight"
                 elif event.key == pygame.K_3:
                     shop_running = False
         pygame.display.flip()
@@ -296,7 +298,7 @@ def show_round_result(player, bot, round_number):
     screen.fill(WHITE)
     font = pygame.font.Font(None, 48)
     if bot.health <= 0:
-        result_text = font.render(f"Round {round_number} Won! +{20 + (player.level - 1) * 30} Points", True, GREEN)
+        result_text = font.render(f"Round {round_number} Won! +{400 * (2 ** (player.level - 1))} Points", True, GREEN)
     else:
         result_text = font.render(f"Round {round_number} Lost!", True, RED)
     screen.blit(result_text, (WIDTH // 2 - result_text.get_width() // 2, HEIGHT // 2))
@@ -398,7 +400,6 @@ def main():
         pygame.display.flip()
 
     pygame.quit()
-
 
 if __name__ == "__main__":
     main()
