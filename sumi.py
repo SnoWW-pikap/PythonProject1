@@ -12,10 +12,12 @@ c.execute('''CREATE TABLE IF NOT EXISTS actions
               timestamp DATETIME)''')
 conn.commit()
 
+
 def log_action(action):
     c.execute("INSERT INTO actions (action, timestamp) VALUES (?, ?)",
               (action, datetime.datetime.now()))
     conn.commit()
+
 
 pygame.init()
 WIDTH, HEIGHT = 800, 600
@@ -29,9 +31,13 @@ BLACK = (0, 0, 0)
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Mortal Kombat Mini")
 clock = pygame.time.Clock()
+
 backgrounds = [pygame.image.load(f"background{i}.png") for i in range(1, 8)]
 for i in range(len(backgrounds)):
     backgrounds[i] = pygame.transform.scale(backgrounds[i], (WIDTH, HEIGHT))
+start_background = pygame.image.load("start_background.png")
+start_background = pygame.transform.scale(start_background, (WIDTH, HEIGHT))
+
 
 class Player:
     def __init__(self, x, y, color):
@@ -186,6 +192,7 @@ class Player:
             opponent.x -= math.cos(angle) * force
             opponent.y -= math.sin(angle) * force
 
+
 class Bot(Player):
     def __init__(self, x, y, color):
         super().__init__(x, y, color)
@@ -221,6 +228,7 @@ class Bot(Player):
         self.is_attacking = True
         self.attack_timer = 10
 
+
 class Bullet:
     def __init__(self, x, y, radius, color, shooter):
         self.x = x
@@ -241,6 +249,7 @@ class Bullet:
                 self.x > opponent.x and
                 self.y < opponent.y + opponent.height and
                 self.y > opponent.y)
+
 
 class Obstacle:
     def __init__(self, x, y, width, height):
@@ -283,6 +292,7 @@ def shop(player):
         clock.tick(FPS)
     return None
 
+
 def load_map(map_name):
     obstacles = []
     if map_name == "map1":
@@ -293,6 +303,7 @@ def load_map(map_name):
         obstacles.append(Obstacle(400, HEIGHT - 250, 200, 20))
         obstacles.append(Obstacle(600, HEIGHT - 100, 150, 20))
     return obstacles
+
 
 def show_round_result(player, bot, round_number):
     screen.fill(WHITE)
@@ -315,6 +326,45 @@ def show_round_result(player, bot, round_number):
                     return True
                 if event.key == pygame.K_ESCAPE:
                     return False
+
+
+def show_start_screen():
+    screen.blit(start_background, (0, 0))
+    font = pygame.font.Font(None, 74)
+    title_text = font.render("Mortal Kombat Mini", True, WHITE)
+    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 4))
+    font = pygame.font.Font(None, 48)
+    start_text = font.render("Press SPACE to Start", True, WHITE)
+    screen.blit(start_text, (WIDTH // 2 - start_text.get_width() // 2, HEIGHT // 2))
+    exit_text = font.render("Press ESC to Exit", True, WHITE)
+    screen.blit(exit_text, (WIDTH // 2 - exit_text.get_width() // 2, HEIGHT // 2 + 50))
+    pygame.display.flip()
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    return True
+                if event.key == pygame.K_ESCAPE:
+                    return False
+
+
+def show_final_screen(player_wins, bot_wins):
+    screen.fill(WHITE)
+    font = pygame.font.Font(None, 74)
+    if player_wins > bot_wins:
+        result_text = font.render("You Win!", True, GREEN)
+    else:
+        result_text = font.render("You Lose!", True, RED)
+    screen.blit(result_text, (WIDTH // 2 - result_text.get_width() // 2, HEIGHT // 4))
+    font = pygame.font.Font(None, 48)
+    wins_text = font.render(f"Player Wins: {player_wins}  Bot Wins: {bot_wins}", True, BLACK)
+    screen.blit(wins_text, (WIDTH // 2 - wins_text.get_width() // 2, HEIGHT // 2))
+    pygame.display.flip()
+    pygame.time.wait(3000)
+
 
 def main():
     global background_color
@@ -400,6 +450,7 @@ def main():
         pygame.display.flip()
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     main()
