@@ -22,21 +22,36 @@ def log_action(action):
 pygame.init()
 WIDTH, HEIGHT = 800, 600
 FPS = 60
-WHITE = (255, 255, 255)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
-BLACK = (0, 0, 0)
+COLORS = {
+    'WHITE': (255, 255, 255),
+    'BLACK': (0, 0, 0),
+    'GOLD': (255, 215, 0),
+    'SILVER': (192, 192, 192),
+    'RED': (255, 0, 0),
+    'BLUE': (30, 144, 255),
+    'DARK_RED': (139, 0, 0),
+    'GREEN': (0, 255, 0),
+    'YELLOW': (255, 255, 0)
+}
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Mortal Kombat Mini")
+pygame.display.set_caption("Mortal Kombat: Dragon Knights")
 clock = pygame.time.Clock()
-
-backgrounds = [pygame.image.load(f"background{i}.png") for i in range(1, 8)]
+backgrounds = [pygame.image.load(f"background{i}.png") for i in range(1, 11)]
 for i in range(len(backgrounds)):
     backgrounds[i] = pygame.transform.scale(backgrounds[i], (WIDTH, HEIGHT))
-start_background = pygame.image.load("start_background.png")
-start_background = pygame.transform.scale(start_background, (WIDTH, HEIGHT))
+used_backgrounds = []
+start_background = pygame.transform.scale(pygame.image.load("dragon_bg.jpg"), (WIDTH, HEIGHT))
+
+
+def get_random_background():
+    global used_backgrounds
+    available = [bg for bg in backgrounds if bg not in used_backgrounds]
+    if not available:
+        used_backgrounds = []
+        available = backgrounds
+    selected = random.choice(available)
+    used_backgrounds.append(selected)
+    return selected
 
 
 class Player:
@@ -53,12 +68,16 @@ class Player:
         self.level = 1
         self.is_flying = False
         self.bullets = []
+        self.is_knight = False
+        self.has_shield = False
+        self.sword_damage = 20
         self.wing_offset = 0
         self.wing_direction = 1
         self.is_attacking = False
         self.attack_timer = 0
         self.direction = 1
         self.jump_squash = 1.0
+        self.special_attack_cooldown = 0
 
     def draw(self):
         current_width = self.width * self.jump_squash
@@ -97,39 +116,50 @@ class Player:
                          int(leg_width))
 
         if self.is_attacking:
-            attack_length = 30 + 10 * (self.attack_timer / 10)
-            start_x = self.x + self.width // 2
-            end_x = start_x + attack_length * self.direction
-            pygame.draw.line(screen, RED,
-                             (start_x, self.y + current_height // 2 + y_offset),
-                             (end_x, self.y + current_height // 2 + y_offset),
-                             8)
-
+            self.draw_sword()
         if self.is_flying:
-            self.wing_offset += 0.1 * self.wing_direction
-            if abs(self.wing_offset) >= 5:
-                self.wing_direction *= -1
-            wing_size = 40 * self.jump_squash
-            pygame.draw.polygon(screen, YELLOW, [
-                (self.x - 20, self.y + 20 + self.wing_offset),
-                (self.x - 60, self.y + 40 + self.wing_offset),
-                (self.x - 20, self.y + 60 + self.wing_offset)
-            ])
-            pygame.draw.polygon(screen, YELLOW, [
-                (self.x + self.width + 20, self.y + 20 + self.wing_offset),
-                (self.x + self.width + 60, self.y + 40 + self.wing_offset),
-                (self.x + self.width + 20, self.y + 60 + self.wing_offset)
-            ])
+            self.draw_wings()
+        if self.has_shield:
+            self.draw_shield()
 
         health_bar_length = 50 * (self.health / 100)
-        pygame.draw.rect(screen, GREEN if self.health > 50 else RED,
+        pygame.draw.rect(screen, COLORS['GREEN'] if self.health > 50 else COLORS['RED'],
                          (self.x, self.y - 10, health_bar_length, 5))
 
-        font = pygame.font.Font(None, 36)
-        text = font.render(f'Points: {self.points}', True, BLACK)
-        screen.blit(text, (self.x, self.y - 40))
-        level_text = font.render(f'Level: {self.level}', True, BLACK)
-        screen.blit(level_text, (self.x, self.y - 70))
+        draw_text(f'Points: {self.points}', 24, self.x, self.y - 40)
+        draw_text(f'Level: {self.level}', 24, self.x, self.y - 70)
+
+    def draw_sword(self):
+        sword_length = 40 + 10 * (self.attack_timer / 10)
+        start_x = self.x + self.width // 2
+        end_x = start_x + sword_length * self.direction
+        pygame.draw.line(screen, COLORS['SILVER'],
+                         (start_x, self.y + self.height // 2),
+                         (end_x, self.y + self.height // 2), 8)
+
+    def draw_shield(self):
+        shield_size = 30
+        shield_x = self.x - 20 if self.direction == -1 else self.x + self.width
+        pygame.draw.rect(screen, COLORS['GOLD'],
+                         (shield_x, self.y + 10, 15, 40))
+        pygame.draw.circle(screen, COLORS['RED'],
+                           (shield_x + 7, self.y + 30), 8)
+
+    def draw_wings(self):
+        self.wing_offset += 0.1 * self.wing_direction
+        if abs(self.wing_offset) >= 5:
+            self.wing_direction *= -1
+        wing_size = 40 * self.jump_squash
+        pygame.draw.polygon(screen, COLORS['YELLOW'], [
+            (self.x - 20, self.y + 20 + self.wing_offset),
+            (self.x - 60, self.y + 40 + self.wing_offset),
+            (self.x - 20, self.y + 60 + self.wing_offset)
+        ])
+        pygame.draw.polygon(screen, COLORS['YELLOW'], [
+            (self.x + self.width + 20, self.y + 20 + self.wing_offset),
+            (self.x + self.width + 60, self.y + 40 + self.wing_offset),
+            (self.x + self.width + 20, self.y + 60 + self.wing_offset)
+        ])
 
     def jump(self):
         if self.is_jumping:
@@ -160,7 +190,10 @@ class Player:
 
     def attack(self, opponent):
         if self.collide_with(opponent):
-            opponent.health -= 20 * self.level
+            damage = self.sword_damage * self.level
+            if opponent.has_shield:
+                damage = max(0, damage - 10)
+            opponent.health -= damage
             if opponent.health <= 0:
                 self.points += 400 * (2 ** (self.level - 1))
                 self.level_up()
@@ -169,7 +202,7 @@ class Player:
 
     def shoot(self):
         if self.is_flying:
-            bullet = Bullet(self.x + self.width // 2, self.y, 10, RED, self)
+            bullet = Bullet(self.x + self.width // 2, self.y, 10, COLORS['RED'], self)
             self.bullets.append(bullet)
 
     def collide_with(self, opponent):
@@ -182,15 +215,24 @@ class Player:
         if self.level < 5:
             self.level += 1
 
-    def push(self, opponent):
-        dx = self.x - opponent.x
-        dy = self.y - opponent.y
-        distance = math.hypot(dx, dy)
-        if distance < 80:
-            force = 5 * (self.level / 2)
-            angle = math.atan2(dy, dx)
-            opponent.x -= math.cos(angle) * force
-            opponent.y -= math.sin(angle) * force
+    def toggle_flying(self):
+        self.is_flying = not self.is_flying
+        self.jump_count = 10
+        self.is_jumping = False
+
+    def buy_knight(self):
+        if self.points >= 5000:
+            self.points -= 5000
+            self.is_knight = True
+            self.has_shield = True
+            self.sword_damage = 30
+
+    def special_attack(self):
+        if self.special_attack_cooldown <= 0:
+            self.special_attack_cooldown = 100
+            for _ in range(5):
+                bullet = Bullet(self.x + self.width // 2, self.y, 10, COLORS['GOLD'], self)
+                self.bullets.append(bullet)
 
 
 class Bot(Player):
@@ -200,6 +242,9 @@ class Bot(Player):
         self.attack_cooldown = 0
         self.health = 200
         self.level = 5
+        self.is_knight = True
+        self.has_shield = True
+        self.sword_damage = 25
 
     def update(self, player):
         if random.random() < 0.02:
@@ -217,16 +262,6 @@ class Bot(Player):
             self.is_jumping = True
 
         self.move(self.move_direction * (3 + self.level // 2))
-
-    def attack(self, opponent):
-        damage = 20 + self.level * 2
-        if self.collide_with(opponent):
-            opponent.health -= damage
-            if opponent.health <= 0:
-                self.points += 400 * (2 ** (self.level - 1))
-                self.level_up()
-        self.is_attacking = True
-        self.attack_timer = 10
 
 
 class Bullet:
@@ -259,21 +294,30 @@ class Obstacle:
         self.height = height
 
     def draw(self):
-        pygame.draw.rect(screen, BLACK, (self.x, self.y, self.width, self.height))
+        pygame.draw.rect(screen, COLORS['BLACK'], (self.x, self.y, self.width, self.height))
+
+
+def draw_text(text, size, x, y, color=COLORS['WHITE'], outline=True):
+    font = pygame.font.Font('fonts/dragon.ttf', size)
+    text_surface = font.render(text, True, color)
+    if outline:
+        outline_surface = font.render(text, True, COLORS['BLACK'])
+        for dx in [-2, 2]:
+            for dy in [-2, 2]:
+                screen.blit(outline_surface, (x + dx, y + dy))
+    screen.blit(text_surface, (x, y))
+
 
 def shop(player):
     shop_running = True
     while shop_running:
-        screen.fill(WHITE)
-        font = pygame.font.Font(None, 48)
-        text = font.render("Shop", True, BLACK)
-        screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 4))
-        option1_text = font.render("1. Flying Mode (2000 points)", True, BLACK)
-        option2_text = font.render("2. Knight Mode (5000 points)", True, BLACK)
-        option3_text = font.render("3. Exit Shop", True, BLACK)
-        screen.blit(option1_text, (WIDTH // 2 - option1_text.get_width() // 2, HEIGHT // 2))
-        screen.blit(option2_text, (WIDTH // 2 - option2_text.get_width() // 2, HEIGHT // 2 + 50))
-        screen.blit(option3_text, (WIDTH // 2 - option3_text.get_width() // 2, HEIGHT // 2 + 100))
+        screen.fill(COLORS['WHITE'])
+        draw_text("Shop", 48, WIDTH // 2 - 50, HEIGHT // 4, COLORS['GOLD'])
+        draw_text(f"Your points: {player.points}", 36, WIDTH // 2 - 150, HEIGHT // 3)
+        draw_text("1. Flying Mode (2000)", 36, WIDTH // 2 - 200, HEIGHT // 2)
+        draw_text("2. Knight Mode (5000)", 36, WIDTH // 2 - 200, HEIGHT // 2 + 50)
+        draw_text("3. Exit Shop", 36, WIDTH // 2 - 200, HEIGHT // 2 + 100)
+        pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 shop_running = False
@@ -281,24 +325,21 @@ def shop(player):
                 if event.key == pygame.K_1:
                     if player.points >= 2000:
                         player.points -= 2000
-                        return "fly"
+                        player.toggle_flying()
                 elif event.key == pygame.K_2:
-                    if player.points >= 5000:
-                        player.points -= 5000
-                        return "knight"
+                    player.buy_knight()
                 elif event.key == pygame.K_3:
                     shop_running = False
-        pygame.display.flip()
         clock.tick(FPS)
     return None
 
 
 def load_map(map_name):
     obstacles = []
-    if map_name == "map1":
+    if map_name == "castle":
         obstacles.append(Obstacle(300, HEIGHT - 100, 200, 20))
         obstacles.append(Obstacle(500, HEIGHT - 200, 150, 20))
-    elif map_name == "map2":
+    elif map_name == "space":
         obstacles.append(Obstacle(100, HEIGHT - 150, 200, 20))
         obstacles.append(Obstacle(400, HEIGHT - 250, 200, 20))
         obstacles.append(Obstacle(600, HEIGHT - 100, 150, 20))
@@ -306,15 +347,14 @@ def load_map(map_name):
 
 
 def show_round_result(player, bot, round_number):
-    screen.fill(WHITE)
-    font = pygame.font.Font(None, 48)
+    screen.fill(COLORS['WHITE'])
     if bot.health <= 0:
-        result_text = font.render(f"Round {round_number} Won! +{400 * (2 ** (player.level - 1))} Points", True, GREEN)
+        result_text = f"Round {round_number} Won! +{400 * (2 ** (player.level - 1))} Points"
+        draw_text(result_text, 48, WIDTH // 2 - 300, HEIGHT // 2, COLORS['GREEN'])
+        player.points += 400 * (2 ** (player.level - 1))
     else:
-        result_text = font.render(f"Round {round_number} Lost!", True, RED)
-    screen.blit(result_text, (WIDTH // 2 - result_text.get_width() // 2, HEIGHT // 2))
-    continue_text = font.render("Press SPACE to continue or ESC to exit", True, BLACK)
-    screen.blit(continue_text, (WIDTH // 2 - continue_text.get_width() // 2, HEIGHT // 2 + 50))
+        draw_text(f"Round {round_number} Lost!", 48, WIDTH // 2 - 200, HEIGHT // 2, COLORS['RED'])
+    draw_text("Press SPACE to continue or ESC to exit", 36, WIDTH // 2 - 300, HEIGHT // 2 + 50, COLORS['BLACK'])
     pygame.display.flip()
     waiting = True
     while waiting:
@@ -330,14 +370,9 @@ def show_round_result(player, bot, round_number):
 
 def show_start_screen():
     screen.blit(start_background, (0, 0))
-    font = pygame.font.Font(None, 74)
-    title_text = font.render("Mortal Kombat Mini", True, WHITE)
-    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 4))
-    font = pygame.font.Font(None, 48)
-    start_text = font.render("Press SPACE to Start", True, WHITE)
-    screen.blit(start_text, (WIDTH // 2 - start_text.get_width() // 2, HEIGHT // 2))
-    exit_text = font.render("Press ESC to Exit", True, WHITE)
-    screen.blit(exit_text, (WIDTH // 2 - exit_text.get_width() // 2, HEIGHT // 2 + 50))
+    draw_text("Mortal Kombat: Dragon Knights", 72, WIDTH // 2 - 350, HEIGHT // 4, COLORS['GOLD'])
+    draw_text("Press SPACE to Start", 48, WIDTH // 2 - 200, HEIGHT // 2)
+    draw_text("Press ESC to Exit", 48, WIDTH // 2 - 180, HEIGHT // 2 + 50)
     pygame.display.flip()
     waiting = True
     while waiting:
@@ -352,102 +387,121 @@ def show_start_screen():
 
 
 def show_final_screen(player_wins, bot_wins):
-    screen.fill(WHITE)
-    font = pygame.font.Font(None, 74)
+    screen.blit(start_background, (0, 0))
     if player_wins > bot_wins:
-        result_text = font.render("You Win!", True, GREEN)
+        draw_text("You Win!", 72, WIDTH // 2 - 150, HEIGHT // 4, COLORS['GOLD'])
     else:
-        result_text = font.render("You Lose!", True, RED)
-    screen.blit(result_text, (WIDTH // 2 - result_text.get_width() // 2, HEIGHT // 4))
-    font = pygame.font.Font(None, 48)
-    wins_text = font.render(f"Player Wins: {player_wins}  Bot Wins: {bot_wins}", True, BLACK)
-    screen.blit(wins_text, (WIDTH // 2 - wins_text.get_width() // 2, HEIGHT // 2))
+        draw_text("You Lose!", 72, WIDTH // 2 - 150, HEIGHT // 4, COLORS['RED'])
+    draw_text(f"Player Wins: {player_wins}  Bot Wins: {bot_wins}", 48, WIDTH // 2 - 200, HEIGHT // 2, COLORS['BLACK'])
+    draw_text("Press SPACE to Restart", 36, WIDTH // 2 - 180, HEIGHT * 3 // 4, COLORS['BLACK'])
     pygame.display.flip()
-    pygame.time.wait(3000)
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    return True
+                if event.key == pygame.K_ESCAPE:
+                    return False
 
 
 def main():
-    global background_color
-    background_color = WHITE
-    player1 = Player(100, HEIGHT - 60, BLUE)
-    bot = Bot(600, HEIGHT - 60, YELLOW)
+    player1 = Player(100, HEIGHT - 60, COLORS['BLUE'])
+    bot = Bot(600, HEIGHT - 60, COLORS['RED'])
     obstacles = []
-    current_map = "default"
+    current_background = get_random_background()
     round_number = 1
     max_rounds = 10
-    running = True
-    previous_background = None
-    current_background = random.choice(backgrounds)
+    player_wins = 0
+    bot_wins = 0
 
-    while running and round_number <= max_rounds:
-        clock.tick(FPS)
-        screen.blit(current_background, (0, 0))
+    while True:
+        if not show_start_screen():
+            break
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+        running = True
+        while running and round_number <= max_rounds:
+            clock.tick(FPS)
+            screen.blit(current_background, (0, 0))
 
-        keys = pygame.key.get_pressed()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
 
-        if keys[pygame.K_a]:
-            player1.move(-5)
-        if keys[pygame.K_d]:
-            player1.move(5)
-        if keys[pygame.K_w] and not player1.is_jumping:
-            player1.is_jumping = True
-        if keys[pygame.K_SPACE]:
-            player1.attack(bot)
-        if keys[pygame.K_TAB]:
-            selected_map = shop(player1)
-            if selected_map:
-                current_map = selected_map
-                obstacles = load_map(current_map)
-        if keys[pygame.K_f] and player1.is_flying:
-            player1.shoot()
+            keys = pygame.key.get_pressed()
 
-        bot.update(player1)
+            if keys[pygame.K_a]:
+                player1.move(-5)
+            if keys[pygame.K_d]:
+                player1.move(5)
+            if keys[pygame.K_w] and not player1.is_jumping:
+                player1.is_jumping = True
+            if keys[pygame.K_SPACE]:
+                player1.attack(bot)
+            if keys[pygame.K_TAB]:
+                shop(player1)
+            if keys[pygame.K_f] and player1.is_flying:
+                player1.shoot()
+            if keys[pygame.K_e] and player1.special_attack_cooldown <= 0:
+                player1.special_attack()
 
-        player1.jump()
-        bot.jump()
+            bot.update(player1)
 
-        player1.attack_timer = max(0, player1.attack_timer - 1)
-        player1.is_attacking = player1.attack_timer > 0
+            player1.jump()
+            bot.jump()
 
-        bot.attack_timer = max(0, bot.attack_timer - 1)
-        bot.is_attacking = bot.attack_timer > 0
+            player1.attack_timer = max(0, player1.attack_timer - 1)
+            player1.is_attacking = player1.attack_timer > 0
 
-        player1.draw()
-        bot.draw()
+            bot.attack_timer = max(0, bot.attack_timer - 1)
+            bot.is_attacking = bot.attack_timer > 0
 
-        for bullet in player1.bullets[:]:
-            bullet.move()
-            bullet.draw()
-            if bullet.collide_with(bot):
-                bot.health -= 10
-                player1.bullets.remove(bullet)
+            player1.special_attack_cooldown = max(0, player1.special_attack_cooldown - 1)
 
-        for bullet in bot.bullets[:]:
-            bullet.move()
-            bullet.draw()
-            if bullet.collide_with(player1):
-                player1.health -= 10
-                bot.bullets.remove(bullet)
+            player1.draw()
+            bot.draw()
 
-        if player1.health <= 0 or bot.health <= 0:
-            result = show_round_result(player1, bot, round_number)
-            if not result:
-                running = False
-            else:
-                round_number += 1
-                if round_number % 2 == 0:
-                    bot.level += 1
-                player1.health = 100
-                bot.health = 100
-                player1.x, player1.y = 100, HEIGHT - 60
-                bot.x, bot.y = 600, HEIGHT - 60
-                current_background = random.choice(backgrounds)
+            for bullet in player1.bullets[:]:
+                bullet.move()
+                bullet.draw()
+                if bullet.collide_with(bot):
+                    bot.health -= 10
+                    player1.bullets.remove(bullet)
 
-        pygame.display.flip()
+            for bullet in bot.bullets[:]:
+                bullet.move()
+                bullet.draw()
+                if bullet.collide_with(player1):
+                    player1.health -= 10
+                    bot.bullets.remove(bullet)
+
+            for obstacle in obstacles:
+                obstacle.draw()
+
+            if player1.health <= 0 or bot.health <= 0:
+                result = show_round_result(player1, bot, round_number)
+                if not result:
+                    running = False
+                else:
+                    round_number += 1
+                    if round_number % 2 == 0:
+                        bot.level += 1
+                    player1.health = 100
+                    bot.health = 100
+                    player1.x, player1.y = 100, HEIGHT - 60
+                    bot.x, bot.y = 600, HEIGHT - 60
+                    current_background = get_random_background()
+
+            pygame.display.flip()
+
+        if not show_final_screen(player_wins, bot_wins):
+            break
+        else:
+            player_wins = 0
+            bot_wins = 0
+            round_number = 1
 
     pygame.quit()
 
